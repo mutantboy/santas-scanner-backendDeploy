@@ -42,6 +42,7 @@ const scanResultSchema = new Schema({
     verdict: String,
     message: String,
     score: Number,
+    country: String,
     timestamp: { type: Date, default: Date.now },
 });
 
