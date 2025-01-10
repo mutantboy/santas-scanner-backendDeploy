@@ -4,6 +4,7 @@
   "description": "its the backend for santas scanner",
   "main": "index.js",
   "scripts": {
+    "dev": "npx ts-node index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "#aleontour",
