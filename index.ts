@@ -17,9 +17,16 @@ const port = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-app.use((req: Request, res: Response, next: NextFunction) => {
-    next();
-  }, cors({ maxAge: 84600 }));
+app.use(cors({
+    origin: [
+      'https://santasnaughtylist-5t5kgl4of-philipps-projects-fa39e004.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:3000'
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    maxAge: 84600
+  }));
 app.get("/", (req: Request, res: Response) => {
   res.send("Express + TypeScript Server");
 });
@@ -33,7 +40,7 @@ app.get("/questions", (req: Request, res: Response) => {
 
 const { Schema } = mongoose;
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://santas-scanner-db-user:2ANRw6twh8_K_4f@spengergasse-mongodb-cl.rkfnn.mongodb.net/santas-scanner?retryWrites=true&w=majority&appName=Spengergasse-Mongodb-Cluster', {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/?retryWrites=true&w=majority&appName=School', {
 
 });
 
