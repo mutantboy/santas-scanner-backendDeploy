@@ -19,7 +19,8 @@ app.use(express.json());
 
 app.use(cors({
     origin: [
-      'https://santasnaughtylist-5t5kgl4of-philipps-projects-fa39e004.vercel.app',
+      'https://santasnaughtylist.vercel.app',
+      'https://santasnaughtylist-philipps-projects-fa39e004.vercel.app',
       'http://localhost:5173',
       'http://localhost:3000'
     ],
