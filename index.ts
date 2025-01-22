@@ -25,13 +25,18 @@ const ScanResult = mongoose.model('ScanResult', scanResultSchema);
 // CORS headers configuration
 const setCorsHeaders = (res: VercelResponse) => {
   res.setHeader('Access-Control-Allow-Origin', [
-    'https://santasnaughtylist.vercel.app',
+    'https://santas-scanner-frontend.vercel.app',
     'http://localhost:5173'
   ]);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 };
+
+const handleOptions = (res: VercelResponse) => {
+    setCorsHeaders(res);
+    res.status(200).end();
+  };
 
 // Route handlers
 const handleQuestions = async (res: VercelResponse) => {
@@ -64,8 +69,13 @@ const handleLeaderboard = async (res: VercelResponse) => {
 
 // Main request handler
 export default async (req: VercelRequest, res: VercelResponse) => {
+    setCorsHeaders(res);
   await connectDB();
-  setCorsHeaders(res);
+
+  if (req.method === 'OPTIONS') {
+    return handleOptions(res);
+  }
+
 
   // Handle preflight request
   if (req.method === 'OPTIONS') {
