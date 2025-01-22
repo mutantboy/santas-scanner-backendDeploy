@@ -9,7 +9,7 @@ const connectDB = async () => {
     if (mongoose.connections[0].readyState) return;
     
     try {
-      await mongoose.connect(process.env.MONGODB_URI!, {
+      await mongoose.connect("mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/?retryWrites=true&w=majority&appName=School", {
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 30000,
         family: 4 // Force IPv4
