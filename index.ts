@@ -6,9 +6,20 @@ import { questions } from './data/questions';
 
 // Database connection
 const connectDB = async () => {
-  if (mongoose.connections[0].readyState) return;
-  await mongoose.connect('mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/?retryWrites=true&w=majority&appName=School');
-};
+    if (mongoose.connections[0].readyState) return;
+    
+    try {
+      await mongoose.connect(process.env.MONGODB_URI!, {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 30000,
+        family: 4 // Force IPv4
+      });
+      console.log('MongoDB connected successfully');
+    } catch (error) {
+      console.error('MongoDB connection failed:', error);
+      throw new Error('Database connection failed');
+    }
+  };
 
 // Database schema
 const scanResultSchema = new mongoose.Schema({
@@ -24,14 +35,11 @@ const ScanResult = mongoose.model('ScanResult', scanResultSchema);
 
 // CORS headers configuration
 const setCorsHeaders = (res: VercelResponse) => {
-  res.setHeader('Access-Control-Allow-Origin', [
-    'https://santas-scanner-frontend.vercel.app',
-    'http://localhost:5173'
-  ]);
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-};
+    res.setHeader('Access-Control-Allow-Origin', 'https://santas-scanner-frontend.vercel.app');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  };
 
 const handleOptions = (res: VercelResponse) => {
     setCorsHeaders(res);
@@ -40,11 +48,12 @@ const handleOptions = (res: VercelResponse) => {
 
 // Route handlers
 const handleQuestions = async (res: VercelResponse) => {
-  try {
-    res.status(200).json(questions);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch questions' });
-  }
+    try {
+        res.status(200).json(questions);
+      } catch (error) {
+        console.error('Questions handler error:', error);
+        res.status(500).json({ error: 'Failed to fetch questions' });
+      }
 };
 
 const handleScanResults = async (req: VercelRequest, res: VercelResponse) => {
@@ -69,43 +78,42 @@ const handleLeaderboard = async (res: VercelResponse) => {
 
 // Main request handler
 export default async (req: VercelRequest, res: VercelResponse) => {
-    setCorsHeaders(res);
-  await connectDB();
-
-  if (req.method === 'OPTIONS') {
-    return handleOptions(res);
-  }
-
-
-  // Handle preflight request
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  // Route requests
-  switch (req.url) {
-    case '/questions':
-      await handleQuestions(res);
-      break;
-
-    case '/scan-results':
-      if (req.method === 'POST') {
-        await handleScanResults(req, res);
-      } else {
-        res.status(405).json({ error: 'Method not allowed' });
+    try {
+        // Handle OPTIONS first
+        if (req.method === 'OPTIONS') {
+          setCorsHeaders(res);
+          return res.status(200).end();
+        }
+    
+        setCorsHeaders(res);
+    
+        // Route requests
+        switch (req.url) {
+          case '/questions':
+            await handleQuestions(res);
+            break;
+          case '/scan-results':
+            await connectDB();
+            if (req.method === 'POST') {
+              await handleScanResults(req, res);
+            } else {
+              res.status(405).json({ error: 'Method not allowed' });
+            }
+            break;
+          case '/leaderboard':
+            await connectDB();
+            if (req.method === 'GET') {
+              await handleLeaderboard(res);
+            } else {
+              res.status(405).json({ error: 'Method not allowed' });
+            }
+            break;
+          default:
+            res.status(404).json({ error: 'Endpoint not found' });
+        }
+      } catch (error) {
+        console.error(error);
+        setCorsHeaders(res); 
+        res.status(500).json({ error: 'Internal server error' });
       }
-      break;
-
-    case '/leaderboard':
-      if (req.method === 'GET') {
-        await handleLeaderboard(res);
-      } else {
-        res.status(405).json({ error: 'Method not allowed' });
-      }
-      break;
-
-    default:
-      res.status(404).json({ error: 'Endpoint not found' });
-  }
 };

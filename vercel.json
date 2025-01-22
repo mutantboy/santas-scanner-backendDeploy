@@ -12,5 +12,8 @@
         "dest": "index.ts",
         "methods": ["GET", "POST", "OPTIONS"]
       }
-    ]
-  }
+    ], 
+    "env": {
+    "MONGODB_URI": "mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/?retryWrites=true&w=majority&appName=School"
+    }
+}
