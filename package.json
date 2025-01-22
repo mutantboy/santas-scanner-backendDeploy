@@ -10,6 +10,7 @@
   "author": "#aleontour",
   "license": "ISC",
   "dependencies": {
+    "@vercel/node": "^4.0.0",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

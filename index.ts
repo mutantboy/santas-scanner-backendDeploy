@@ -1,87 +1,101 @@
 
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import mongoose from 'mongoose';
 import { Question } from './types';
 import { questions } from './data/questions';
 
-import express, { Express, Request, Response, NextFunction } from "express";
-import bodyParser from "body-parser";
-import dotenv from "dotenv";
-import cors from "cors";
-import mongoose from 'mongoose';
+// Database connection
+const connectDB = async () => {
+  if (mongoose.connections[0].readyState) return;
+  await mongoose.connect('mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/?retryWrites=true&w=majority&appName=School');
+};
 
-dotenv.config();
-
-const app: Express = express();
-const port = process.env.PORT || 3000;
-
-//app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
-
-app.use(cors({
-    origin: [
-      'https://santasnaughtylist.vercel.app',
-      'https://santasnaughtylist-philipps-projects-fa39e004.vercel.app',
-      'http://localhost:5173',
-      'http://localhost:3000'
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true,
-    maxAge: 84600
-  }));
-app.get("/", (req: Request, res: Response) => {
-  res.send("Express + TypeScript Server");
-});
-
-
-
-// GET /questions
-app.get("/questions", (req: Request, res: Response) => {
-  res.json(questions);
-});
-
-const { Schema } = mongoose;
-
-mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/?retryWrites=true&w=majority&appName=School', {
-
-});
-
-const scanResultSchema = new Schema({
-    name: String,
-    verdict: String,
-    message: String,
-    score: Number,
-    country: String,
-    timestamp: { type: Date, default: Date.now },
+// Database schema
+const scanResultSchema = new mongoose.Schema({
+  name: String,
+  verdict: String,
+  message: String,
+  score: Number,
+  country: String,
+  timestamp: { type: Date, default: Date.now },
 });
 
 const ScanResult = mongoose.model('ScanResult', scanResultSchema);
 
-app.post("/scan-results",  (req: Request, res: Response) => {
-    try {
-        
-        console.log("POST /scan-results");
-        console.log(req.body);
-        const scanResult = new ScanResult(req.body);
-         scanResult.save().then(() => {
-            res.status(201).json(scanResult);
-         }).catch((error) => {
-             console.log(error);
-            });
-        
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to save scan result' });
-    }
-});
+// CORS headers configuration
+const setCorsHeaders = (res: VercelResponse) => {
+  res.setHeader('Access-Control-Allow-Origin', [
+    'https://santasnaughtylist.vercel.app',
+    'http://localhost:5173'
+  ]);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+};
 
-app.get("/leaderboard", async (req: Request, res: Response) => {
-    try {
-        const leaderboard = await ScanResult.find().sort({ score: -1 }).exec();
-        res.json(leaderboard);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve leaderboard' });
-    }
-});
+// Route handlers
+const handleQuestions = async (res: VercelResponse) => {
+  try {
+    res.status(200).json(questions);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch questions' });
+  }
+};
 
-app.listen(port, () => {
-    console.log(`[server]: Server is running at http://localhost:${port}`);
-  });
+const handleScanResults = async (req: VercelRequest, res: VercelResponse) => {
+  try {
+    const scanResult = new ScanResult(req.body);
+    await scanResult.save();
+    res.status(201).json(scanResult);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to save scan result' });
+  }
+};
+
+const handleLeaderboard = async (res: VercelResponse) => {
+  try {
+    const leaderboard = await ScanResult.find().sort({ score: -1 }).exec();
+    res.status(200).json(leaderboard || []);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to retrieve leaderboard' });
+  }
+};
+
+// Main request handler
+export default async (req: VercelRequest, res: VercelResponse) => {
+  await connectDB();
+  setCorsHeaders(res);
+
+  // Handle preflight request
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  // Route requests
+  switch (req.url) {
+    case '/questions':
+      await handleQuestions(res);
+      break;
+
+    case '/scan-results':
+      if (req.method === 'POST') {
+        await handleScanResults(req, res);
+      } else {
+        res.status(405).json({ error: 'Method not allowed' });
+      }
+      break;
+
+    case '/leaderboard':
+      if (req.method === 'GET') {
+        await handleLeaderboard(res);
+      } else {
+        res.status(405).json({ error: 'Method not allowed' });
+      }
+      break;
+
+    default:
+      res.status(404).json({ error: 'Endpoint not found' });
+  }
+};
