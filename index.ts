@@ -23,13 +23,13 @@ const connectDB = async () => {
 
 // Database schema
 const scanResultSchema = new mongoose.Schema({
-  name: String,
-  verdict: String,
-  message: String,
-  score: Number,
-  country: String,
-  timestamp: { type: Date, default: Date.now },
-});
+    name: { type: String, required: true },
+    verdict: { type: String, enum: ['NAUGHTY', 'NICE'], required: true },
+    message: { type: String, required: true },
+    score: { type: Number, min: 0, max: 100, required: true },
+    country: String,
+    timestamp: { type: Date, default: Date.now }
+  });
 
 const ScanResult = mongoose.model('ScanResult', scanResultSchema);
 
@@ -68,13 +68,20 @@ const handleScanResults = async (req: VercelRequest, res: VercelResponse) => {
 };
 
 const handleLeaderboard = async (res: VercelResponse) => {
-  try {
-    const leaderboard = await ScanResult.find().sort({ score: -1 }).exec();
-    res.status(200).json(leaderboard || []);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve leaderboard' });
-  }
-};
+    try {
+      const leaderboard = await ScanResult.find()
+        .sort({ score: -1 })
+        .limit(100)
+        .lean()
+        .exec();
+        
+      console.log('Leaderboard results:', leaderboard);
+      res.status(200).json(leaderboard);
+    } catch (error) {
+      console.error('Leaderboard error:', error);
+      res.status(500).json({ error: 'Failed to retrieve leaderboard' });
+    }
+  };
 
 // Main request handler
 export default async (req: VercelRequest, res: VercelResponse) => {
