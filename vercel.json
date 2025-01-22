@@ -14,6 +14,6 @@
       }
     ], 
     "env": {
-    "MONGODB_URI": "mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/?retryWrites=true&w=majority&appName=School"
+    "MONGODB_URI": "mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/santas_scanner?retryWrites=true&w=majority&ssl=true&authSource=admin"
     }
 }

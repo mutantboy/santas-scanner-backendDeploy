@@ -3,16 +3,19 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import mongoose from 'mongoose';
 import { Question } from './types';
 import { questions } from './data/questions';
+import axios from 'axios';
 
 // Database connection
 const connectDB = async () => {
     if (mongoose.connections[0].readyState) return;
     
     try {
-      await mongoose.connect("mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/?retryWrites=true&w=majority&appName=School", {
+      await mongoose.connect("mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/santas_scanner?retryWrites=true&w=majority&ssl=true&authSource=admin", {
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 30000,
-        family: 4 // Force IPv4
+        family: 4, // Force IPv4
+        ssl: true,
+        tlsAllowInvalidCertificates: false,
       });
       console.log('MongoDB connected successfully');
     } catch (error) {
@@ -57,15 +60,34 @@ const handleQuestions = async (res: VercelResponse) => {
 };
 
 const handleScanResults = async (req: VercelRequest, res: VercelResponse) => {
-  try {
-    const scanResult = new ScanResult(req.body);
-    await scanResult.save();
-    res.status(201).json(scanResult);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to save scan result' });
-  }
-};
+    try {
+      // Add validation
+      const requiredFields = ['name', 'verdict', 'message', 'score'];
+      for (const field of requiredFields) {
+        if (!req.body[field]) {
+          return res.status(400).json({ error: `Missing ${field} field` });
+        }
+      }
+  
+      const scanResult = new ScanResult({
+        ...req.body,
+        score: Math.min(100, Math.max(0, req.body.score)) // Clamp score
+      });
+      
+      await scanResult.validate(); // Explicit validation
+      await scanResult.save();
+      
+      res.status(201).json(scanResult);
+    } catch (error) {
+      console.error('Scan result error:', error);
+      res.status(400).json({ 
+        error: 'Validation failed',
+        details: error instanceof mongoose.Error.ValidationError 
+          ? error.errors 
+          : error
+      });
+    }
+  };
 
 const handleLeaderboard = async (res: VercelResponse) => {
     try {
@@ -80,6 +102,24 @@ const handleLeaderboard = async (res: VercelResponse) => {
     } catch (error) {
       console.error('Leaderboard error:', error);
       res.status(500).json({ error: 'Failed to retrieve leaderboard' });
+    }
+  };
+
+  const handleCountry = async (req: VercelRequest, res: VercelResponse) => {
+    try {
+      const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      const response = await axios.get(`http://ip-api.com/json/${ip}?fields=status,countryCode`);
+      
+      if (response.data.status !== 'success') {
+        throw new Error('IP API failed');
+      }
+      
+      res.status(200).json({
+        countryCode: response.data.countryCode || 'XX'
+      });
+    } catch (error) {
+      console.error('Country error:', error);
+      res.status(200).json({ countryCode: 'XX' }); // Fail gracefully
     }
   };
 
@@ -113,6 +153,13 @@ export default async (req: VercelRequest, res: VercelResponse) => {
               await handleLeaderboard(res);
             } else {
               res.status(405).json({ error: 'Method not allowed' });
+            }
+            break;
+          case '/country':
+            if (req.method === 'GET') {
+                await handleCountry(req, res);
+            } else {
+                res.status(405).json({ error: 'Method not allowed' });
             }
             break;
           default:
