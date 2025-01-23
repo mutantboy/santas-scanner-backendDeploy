@@ -20,6 +20,7 @@ app.use(cors({
   credentials: true,
   maxAge: 86400
 }));
+app.options('*', cors());
 
 // Database connection manager
 let isConnected = false;
@@ -31,10 +32,10 @@ const connectDB = async (): Promise<void> => {
   
   try {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://philippkhachik:root@dev.42htl.mongodb.net/?retryWrites=true&w=majority&appName=dev', {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 30000,
-      maxPoolSize: 5,
-      minPoolSize: 1,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 10,
+      minPoolSize: 2,
       ssl: true,
       tlsAllowInvalidCertificates: false
     });

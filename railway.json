@@ -1,5 +1,6 @@
 {
     "buildCommand": "npm run build",
     "installCommand": "npm install",
-    "startCommand": "npm start"
+    "startCommand": "npm start",
+    "port": 3000
 }
