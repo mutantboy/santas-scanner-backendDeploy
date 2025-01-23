@@ -13,7 +13,8 @@ app.use(cors({
   origin: [
     'https://santas-scanner-frontend.vercel.app',
     'https://santas-scanner-webappdeploy-production.up.railway.app',
-    'http://localhost:3000'
+    'http://localhost:3000',
+    '*'
   ],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
