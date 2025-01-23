@@ -1,173 +1,155 @@
-
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import express, { Express, Request, Response, NextFunction } from "express";
 import mongoose from 'mongoose';
+import cors from 'cors';
 import { Question } from './types';
 import { questions } from './data/questions';
-import axios from 'axios';
 
-// Database connection
-const connectDB = async () => {
-    if (mongoose.connections[0].readyState) return;
-    
-    try {
-      await mongoose.connect("mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/santas_scanner?retryWrites=true&w=majority&ssl=true&authSource=admin", {
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 30000,
-        family: 4, // Force IPv4
-        ssl: true,
-        tlsAllowInvalidCertificates: false,
-      });
-      console.log('MongoDB connected successfully');
-    } catch (error) {
-      console.error('MongoDB connection failed:', error);
-      throw new Error('Database connection failed');
-    }
-  };
+// Vercel serverless config
+const app: Express = express();
+const port = process.env.PORT || 3000;
 
-// Database schema
-const scanResultSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    verdict: { type: String, enum: ['NAUGHTY', 'NICE'], required: true },
-    message: { type: String, required: true },
-    score: { type: Number, min: 0, max: 100, required: true },
-    country: String,
-    timestamp: { type: Date, default: Date.now }
-  });
+// Enhanced CORS configuration
+app.use(cors({
+  origin: [
+    'https://santas-scanner-frontend.vercel.app',
+    'http://localhost:3000'
+  ],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  maxAge: 86400
+}));
 
-const ScanResult = mongoose.model('ScanResult', scanResultSchema);
+// Database connection manager
+let isConnected = false;
 
-// CORS headers configuration
-const setCorsHeaders = (res: VercelResponse) => {
-    res.setHeader('Access-Control-Allow-Origin', 'https://santas-scanner-frontend.vercel.app');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Max-Age', '86400');
-  };
-
-const handleOptions = (res: VercelResponse) => {
-    setCorsHeaders(res);
-    res.status(200).end();
-  };
-
-// Route handlers
-const handleQuestions = async (res: VercelResponse) => {
-    try {
-        res.status(200).json(questions);
-      } catch (error) {
-        console.error('Questions handler error:', error);
-        res.status(500).json({ error: 'Failed to fetch questions' });
-      }
-};
-
-const handleScanResults = async (req: VercelRequest, res: VercelResponse) => {
-    try {
-      // Add validation
-      const requiredFields = ['name', 'verdict', 'message', 'score'];
-      for (const field of requiredFields) {
-        if (!req.body[field]) {
-          return res.status(400).json({ error: `Missing ${field} field` });
-        }
-      }
+const connectDB = async (): Promise<void> => {
+  if (isConnected) return;
   
-      const scanResult = new ScanResult({
-        ...req.body,
-        score: Math.min(100, Math.max(0, req.body.score)) // Clamp score
-      });
-      
-      await scanResult.validate(); // Explicit validation
-      await scanResult.save();
-      
-      res.status(201).json(scanResult);
-    } catch (error) {
-      console.error('Scan result error:', error);
-      res.status(400).json({ 
-        error: 'Validation failed',
-        details: error instanceof mongoose.Error.ValidationError 
-          ? error.errors 
-          : error
-      });
-    }
-  };
+  try {
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://philippkhachik:<db_password>@dev.42htl.mongodb.net/?retryWrites=true&w=majority&appName=dev', {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 30000,
+      maxPoolSize: 5,
+      minPoolSize: 1,
+      ssl: true,
+      tlsAllowInvalidCertificates: false
+    });
 
-const handleLeaderboard = async (res: VercelResponse) => {
-    try {
-      const leaderboard = await ScanResult.find()
-        .sort({ score: -1 })
-        .limit(100)
-        .lean()
-        .exec();
-        
-      console.log('Leaderboard results:', leaderboard);
-      res.status(200).json(leaderboard);
-    } catch (error) {
-      console.error('Leaderboard error:', error);
-      res.status(500).json({ error: 'Failed to retrieve leaderboard' });
-    }
-  };
-
-  const handleCountry = async (req: VercelRequest, res: VercelResponse) => {
-    try {
-      const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-      const response = await axios.get(`http://ip-api.com/json/${ip}?fields=status,countryCode`);
-      
-      if (response.data.status !== 'success') {
-        throw new Error('IP API failed');
-      }
-      
-      res.status(200).json({
-        countryCode: response.data.countryCode || 'XX'
-      });
-    } catch (error) {
-      console.error('Country error:', error);
-      res.status(200).json({ countryCode: 'XX' }); // Fail gracefully
-    }
-  };
-
-// Main request handler
-export default async (req: VercelRequest, res: VercelResponse) => {
-    try {
-        // Handle OPTIONS first
-        if (req.method === 'OPTIONS') {
-          setCorsHeaders(res);
-          return res.status(200).end();
-        }
+    isConnected = true;
+    console.log('MongoDB connected');
     
-        setCorsHeaders(res);
-    
-        // Route requests
-        switch (req.url) {
-          case '/questions':
-            await handleQuestions(res);
-            break;
-          case '/scan-results':
-            await connectDB();
-            if (req.method === 'POST') {
-              await handleScanResults(req, res);
-            } else {
-              res.status(405).json({ error: 'Method not allowed' });
-            }
-            break;
-          case '/leaderboard':
-            await connectDB();
-            if (req.method === 'GET') {
-              await handleLeaderboard(res);
-            } else {
-              res.status(405).json({ error: 'Method not allowed' });
-            }
-            break;
-          case '/country':
-            if (req.method === 'GET') {
-                await handleCountry(req, res);
-            } else {
-                res.status(405).json({ error: 'Method not allowed' });
-            }
-            break;
-          default:
-            res.status(404).json({ error: 'Endpoint not found' });
+    // Safe index creation with type guards
+    mongoose.connection.once('open', async () => {
+      try {
+        const db = mongoose.connection.db;
+        if (db) {
+          await db.collection('scanresults').createIndex({ score: -1 });
         }
-      } catch (error) {
-        console.error(error);
-        setCorsHeaders(res); 
-        res.status(500).json({ error: 'Internal server error' });
+      } catch (indexError) {
+        console.error('Index creation error:', indexError);
       }
+    });
+    
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw new Error('Database connection failed');
+  }
 };
+
+// Database schema with TypeScript interface
+interface IScanResult extends mongoose.Document {
+  name: string;
+  verdict: 'NAUGHTY' | 'NICE';
+  message: string;
+  score: number;
+  country?: string;
+  timestamp: Date;
+}
+
+const scanResultSchema = new mongoose.Schema<IScanResult>({
+  name: { type: String, required: true },
+  verdict: { type: String, enum: ['NAUGHTY', 'NICE'], required: true },
+  message: { type: String, required: true },
+  score: { type: Number, min: 0, max: 100, required: true },
+  country: String,
+  timestamp: { type: Date, default: Date.now }
+});
+
+const ScanResult = mongoose.model<IScanResult>('ScanResult', scanResultSchema);
+
+// Route handlers with proper typing
+app.get("/questions", async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(questions);
+  } catch (error) {
+    console.error('Questions error:', error);
+    res.status(500).json({ error: 'Failed to fetch questions' });
+  }
+});
+
+app.post("/scan-results", express.json(), async (req: Request, res: Response): Promise<void> => {
+  try {
+    await connectDB();
+    
+    // Type-safe validation
+    const requiredFields = ['name', 'verdict', 'message', 'score'];
+    for (const field of requiredFields) {
+      if (!(field in req.body)) {
+        res.status(400).json({ error: `Missing ${field} field` });
+        return;
+      }
+    }
+
+    const scanResult = new ScanResult({
+      ...req.body,
+      score: Math.min(100, Math.max(0, req.body.score))
+    });
+
+    await scanResult.save();
+    res.status(201).json(scanResult);
+    
+  } catch (error) {
+    console.error('Scan result error:', error);
+    res.status(500).json({ error: 'Failed to save result' });
+  }
+});
+
+app.get("/leaderboard", async (req: Request, res: Response): Promise<void> => {
+  try {
+    await connectDB();
+    const leaderboard = await ScanResult.find()
+      .sort({ score: -1 })
+      .limit(100)
+      .lean();
+    res.json(leaderboard);
+  } catch (error) {
+    console.error('Leaderboard error:', error);
+    res.status(500).json({ error: 'Failed to retrieve leaderboard' });
+  }
+});
+
+app.get("/country", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,countryCode`);
+    const data = await response.json();
+    
+    res.json({
+      countryCode: data.status === 'success' ? data.countryCode : 'XX'
+    });
+  } catch (error) {
+    console.error('Country error:', error);
+    res.json({ countryCode: 'XX' });
+  }
+});
+
+// Vercel export
+export default app;
+
+// Local development server
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`[server]: Server running at http://localhost:${port}`);
+  });
+}

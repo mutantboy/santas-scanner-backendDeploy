@@ -3,7 +3,11 @@
     "builds": [
       {
         "src": "index.ts",
-        "use": "@vercel/node"
+        "use": "@vercel/node",
+        "config": {
+        "includeFiles": ["data/**", "types.ts"],
+        "maxLambdaSize": "50mb"
+        }
       }
     ],
     "routes": [
@@ -14,6 +18,6 @@
       }
     ], 
     "env": {
-    "MONGODB_URI": "mongodb+srv://philippkhachik:root@school.42htl.mongodb.net/santas_scanner?retryWrites=true&w=majority&ssl=true&authSource=admin"
+    "MONGODB_URI": "mongodb+srv://philippkhachik:<db_password>@dev.42htl.mongodb.net/?retryWrites=true&w=majority&appName=dev"
     }
 }
