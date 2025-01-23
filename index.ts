@@ -12,6 +12,7 @@ const port = process.env.PORT || 3000;
 app.use(cors({
   origin: [
     'https://santas-scanner-frontend.vercel.app',
+    'https://*.up.railway.app',
     'http://localhost:3000'
   ],
   methods: ['GET', 'POST', 'OPTIONS'],
