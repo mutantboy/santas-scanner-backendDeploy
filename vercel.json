@@ -18,6 +18,6 @@
       }
     ], 
     "env": {
-    "MONGODB_URI": "mongodb+srv://philippkhachik:<db_password>@dev.42htl.mongodb.net/?retryWrites=true&w=majority&appName=dev"
+    "MONGODB_URI": "mongodb+srv://philippkhachik:root@dev.42htl.mongodb.net/?retryWrites=true&w=majority&appName=dev"
     }
 }

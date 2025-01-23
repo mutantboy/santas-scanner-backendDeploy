@@ -22,12 +22,14 @@ app.use(cors({
 
 // Database connection manager
 let isConnected = false;
+let cachedConnection: typeof mongoose | null = null;
 
 const connectDB = async (): Promise<void> => {
+  if (cachedConnection) return cachedConnection;
   if (isConnected) return;
   
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://philippkhachik:<db_password>@dev.42htl.mongodb.net/?retryWrites=true&w=majority&appName=dev', {
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://philippkhachik:root@dev.42htl.mongodb.net/?retryWrites=true&w=majority&appName=dev', {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 30000,
       maxPoolSize: 5,
@@ -35,7 +37,6 @@ const connectDB = async (): Promise<void> => {
       ssl: true,
       tlsAllowInvalidCertificates: false
     });
-
     isConnected = true;
     console.log('MongoDB connected');
     
