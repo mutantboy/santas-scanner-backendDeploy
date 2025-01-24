@@ -31,37 +31,29 @@ const connectDB = async () => {
     if (isConnected) return;
   
     try {
-      const conn = await mongoose.connect(process.env.MONGODB_URI!, {
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 30000,
+      if (!process.env.MONGODB_URI) {
+        throw new Error('MONGODB_URI is not defined');
+      }
+
+      const conn = await mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 10000, // Longer timeout
+        socketTimeoutMS: 45000,          // Longer timeout
+        retryWrites: true,
+        w: 'majority'
       });
-  
-      // Verify connection state
-      if (
-        conn.connection.readyState !== 1 || 
-        !conn.connection.db
-      ) {
-        throw new Error('MongoDB connection not fully established');
+
+      if (conn.connection.readyState !== 1) {
+        throw new Error('MongoDB connection not ready');
       }
-  
+
       isConnected = true;
-      console.log(`Connected to MongoDB: ${conn.connection.host}`);
-  
-      // Type-safe database operations
-      const db = conn.connection.db;
-      const collections = await db.listCollections().toArray();
-      
-      if (!collections.some(c => c.name === 'scanresults')) {
-        await db.createCollection('scanresults');
-      }
-  
-      await db.collection('scanresults').createIndex({ score: -1 });
-  
+      console.log(`MongoDB Connected: ${conn.connection.host}`);
+
     } catch (error) {
-      console.error('MongoDB connection failed:', error);
+      console.error('MongoDB connection error:', error);
       process.exit(1);
     }
-  };
+};
 
 // Database schema with TypeScript interface
 interface IScanResult extends mongoose.Document {
@@ -122,17 +114,26 @@ app.post("/scan-results", express.json(), async (req: Request, res: Response): P
 });
 
 app.get("/leaderboard", async (req: Request, res: Response): Promise<void> => {
-  try {
-    await connectDB();
-    const leaderboard = await ScanResult.find()
-      .sort({ score: -1 })
-      .limit(100)
-      .lean();
-    res.json(leaderboard);
-  } catch (error) {
-    console.error('Leaderboard error:', error);
-    res.status(500).json({ error: 'Failed to retrieve leaderboard' });
-  }
+    try {
+      console.log('Connecting to database...');
+      await connectDB();
+      
+      console.log('Fetching leaderboard...');
+      const leaderboard = await ScanResult.find()
+        .sort({ score: -1 })
+        .limit(100)
+        .lean();
+        
+      console.log(`Found ${leaderboard.length} results`);
+      res.json(leaderboard);
+      
+    } catch (error) {
+      console.error('Detailed leaderboard error:', error);
+      res.status(500).json({ 
+        error: 'Failed to retrieve leaderboard',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
 });
 
 app.get("/country", async (req: Request, res: Response): Promise<void> => {
@@ -156,13 +157,18 @@ export default app;
 const startServer = async () => {
     try {
       await connectDB();
-      app.listen(Number(port), '0.0.0.0', () => {
+      const server = app.listen(Number(port), '0.0.0.0', () => {
         console.log(`[server]: Server running at http://0.0.0.0:${Number(port)}`);
       });
+      
+      // Prevent timeouts
+      server.keepAliveTimeout = 65000;
+      server.headersTimeout = 66000;
+
     } catch (error) {
-      console.error('Failed to start server:', error);
+      console.error('Server startup error:', error);
       process.exit(1);
     }
-  };
-  startServer();
+};
+startServer();
   
