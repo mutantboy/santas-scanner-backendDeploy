@@ -14,11 +14,10 @@ app.use(cors({
     'https://santas-scanner-frontend.vercel.app',
     'https://santas-scanner-webappdeploy-production.up.railway.app',
     'http://localhost:3000',
-    '*'
   ],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
+  //credentials: true,
   maxAge: 86400
 }));
 app.options('*', cors());
@@ -152,8 +151,8 @@ app.get("/country", async (req: Request, res: Response): Promise<void> => {
 export default app;
 
 // Local development server
-if (process.env.NODE_ENV !== 'production') {
+//if (process.env.NODE_ENV !== 'production') {
   app.listen(port, () => {
     console.log(`[server]: Server running at http://localhost:${port}`);
   });
-}
+//}
