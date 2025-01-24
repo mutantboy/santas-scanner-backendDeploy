@@ -9,7 +9,7 @@ const app: Express = express();
 const port = process.env.PORT || 3000;
 
 // Enhanced CORS configuration
-app.use(cors({
+const corsOptions = {
   origin: [
     'https://santas-scanner-frontend.vercel.app',
     'https://santas-scanner-webappdeploy-production.up.railway.app',
@@ -19,8 +19,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   //credentials: true,
   maxAge: 86400
-}));
-app.options('*', cors());
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); 
 
 // Database connection manager
 let isConnected = false;
@@ -32,12 +33,8 @@ const connectDB = async (): Promise<void> => {
   
   try {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://philippkhachik:root@dev.42htl.mongodb.net/?retryWrites=true&w=majority&appName=dev', {
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 10,
-      minPoolSize: 2,
-      ssl: true,
-      tlsAllowInvalidCertificates: false
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000
     });
     isConnected = true;
     console.log('MongoDB connected');
