@@ -3,7 +3,7 @@
     "installCommand": "npm install",
     "startCommand": "npm start",
     "port": 3000,
-    "env": {
+    "variables": {
     "NODE_ENV": "production"
     }
 }

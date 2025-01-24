@@ -27,35 +27,41 @@ app.options('*', cors(corsOptions));
 let isConnected = false;
 let cachedConnection: typeof mongoose | null = null;
 
-const connectDB = async (): Promise<void> => {
-  if (cachedConnection) return cachedConnection;
-  if (isConnected) return;
+const connectDB = async () => {
+    if (isConnected) return;
   
-  try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://philippkhachik:root@dev.42htl.mongodb.net/?retryWrites=true&w=majority&appName=dev', {
+    try {
+      const conn = await mongoose.connect(process.env.MONGODB_URI!, {
         serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 45000
-    });
-    isConnected = true;
-    console.log('MongoDB connected');
-    
-    // Safe index creation with type guards
-    mongoose.connection.once('open', async () => {
-      try {
-        const db = mongoose.connection.db;
-        if (db) {
-          await db.collection('scanresults').createIndex({ score: -1 });
-        }
-      } catch (indexError) {
-        console.error('Index creation error:', indexError);
+        socketTimeoutMS: 30000,
+      });
+  
+      // Verify connection state
+      if (
+        conn.connection.readyState !== 1 || 
+        !conn.connection.db
+      ) {
+        throw new Error('MongoDB connection not fully established');
       }
-    });
-    
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    throw new Error('Database connection failed');
-  }
-};
+  
+      isConnected = true;
+      console.log(`Connected to MongoDB: ${conn.connection.host}`);
+  
+      // Type-safe database operations
+      const db = conn.connection.db;
+      const collections = await db.listCollections().toArray();
+      
+      if (!collections.some(c => c.name === 'scanresults')) {
+        await db.createCollection('scanresults');
+      }
+  
+      await db.collection('scanresults').createIndex({ score: -1 });
+  
+    } catch (error) {
+      console.error('MongoDB connection failed:', error);
+      process.exit(1);
+    }
+  };
 
 // Database schema with TypeScript interface
 interface IScanResult extends mongoose.Document {
@@ -147,9 +153,16 @@ app.get("/country", async (req: Request, res: Response): Promise<void> => {
 // Vercel export
 export default app;
 
-// Local development server
-//if (process.env.NODE_ENV !== 'production') {
-  app.listen(port, () => {
-    console.log(`[server]: Server running at http://localhost:${port}`);
-  });
-//}
+const startServer = async () => {
+    try {
+      await connectDB();
+      app.listen(Number(port), '0.0.0.0', () => {
+        console.log(`[server]: Server running at http://0.0.0.0:${Number(port)}`);
+      });
+    } catch (error) {
+      console.error('Failed to start server:', error);
+      process.exit(1);
+    }
+  };
+  startServer();
+  
