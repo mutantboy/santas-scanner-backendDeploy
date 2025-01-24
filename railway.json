@@ -2,7 +2,7 @@
     "buildCommand": "npm run build",
     "installCommand": "npm install",
     "startCommand": "npm start",
-    "port": 3000,
+    "port": "$PORT",
     "variables": {
     "NODE_ENV": "production"
     }

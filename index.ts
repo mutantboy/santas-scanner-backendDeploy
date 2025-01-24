@@ -14,11 +14,12 @@ const corsOptions = {
     'https://santas-scanner-frontend.vercel.app',
     'https://santas-scanner-webappdeploy-production.up.railway.app',
     'http://localhost:3000',
-  ],
-  methods: ['GET', 'POST', 'OPTIONS'],
+    'https://santas-scanner-backenddeploy-production.up.railway.app'
+  ]
+  /*methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   //credentials: true,
-  maxAge: 86400
+  maxAge: 86400*/
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); 
@@ -151,24 +152,13 @@ app.get("/country", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+const server = app.listen(Number(port), '0.0.0.0', () => {
+    console.log(`Server running on port ${port}`);
+});
+
 // Vercel export
-export default app;
+//export default app;
 
-const startServer = async () => {
-    try {
-      await connectDB();
-      const server = app.listen(Number(port), '0.0.0.0', () => {
-        console.log(`[server]: Server running at http://0.0.0.0:${Number(port)}`);
-      });
-      
-      // Prevent timeouts
-      server.keepAliveTimeout = 65000;
-      server.headersTimeout = 66000;
 
-    } catch (error) {
-      console.error('Server startup error:', error);
-      process.exit(1);
-    }
-};
-startServer();
+
   
